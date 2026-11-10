@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>گروه چت ۵ نفره</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Vazirmatn', system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at 20% 0%, #1e1b4b 0%, #0b0d14 55%, #05060a 100%);
+  color: #e8eaf6;
+  overflow: hidden;
+}
+button { font-family: inherit; cursor: pointer; border: none; }
+input, textarea { font-family: inherit; }
+textarea { resize: none; }
+
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ---------- صفحه لود ---------- */
+#loadingScreen {
+  align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 40%, #1e1b4b 0%, #0b0d14 60%, #05060a 100%);
+}
+.loading-content { text-align: center; padding: 20px; }
+.loading-logo {
+  font-size: 84px;
+  margin-bottom: 16px;
+  display: inline-block;
+  animation: pulse 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 30px rgba(162, 155, 254, .8));
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+.loading-name {
+  font-size: 22px; font-weight: 700;
+  margin-bottom: 28px;
+  background: linear-gradient(90deg, #a29bfe, #74b9ff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.spinner {
+  width: 42px; height: 42px;
+  border: 3px solid rgba(108, 92, 231, .2);
+  border-top-color: #6c5ce7;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: #8b90a8; }
+
+/* ---------- کارت ---------- */
+.card {
+  width: 100%; max-width: 380px;
+  background: rgba(23, 26, 35, .88);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(108, 92, 231, .25);
+  border-radius: 24px;
+  padding: 30px 26px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, .6);
+  text-align: center;
+}
+.card h1 {
+  font-size: 21px; font-weight: 700; margin-bottom: 6px;
+  background: linear-gradient(90deg, #a29bfe, #74b9ff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.card .sub { font-size: 13px; color: #8b90a8; margin-bottom: 20px; }
+.card .brand-logo { font-size: 46px; margin-bottom: 8px; filter: drop-shadow(0 0 22px rgba(162, 155, 254, .7)); }
+
+#loginScreen, #profileScreen { align-items: center; justify-content: center; padding: 20px; }
+
+#nameInput, #adminPass, .admin-input, #dmText {
+  width: 100%; padding: 13px 16px;
+  background: #0e1018;
+  border: 1px solid #262b3d;
+  border-radius: 14px;
+  color: #e8eaf6;
+  font-size: 15px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  margin-bottom: 12px;
+}
+#nameInput:focus, #adminPass:focus, .admin-input:focus, #dmText:focus {
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, .18);
+}
+.btn-main {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, #6c5ce7, #8e7bff);
+  color: #fff;
+  border-radius: 14px;
+  font-size: 15px; font-weight: 700;
+  transition: transform .15s, box-shadow .2s, opacity .2s;
+}
+.btn-main:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(108,92,231,.4); }
+.btn-main:active { transform: scale(.98); }
+.btn-main:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-ghost {
+  width: 100%; padding: 12px;
+  background: transparent;
+  border: 1px solid #2c3145;
+  border-radius: 14px;
+  color: #9aa0b8;
+  font-size: 14px;
+  transition: all .2s;
+}
+.btn-ghost:hover { color: #a29bfe; border-color: #6c5ce7; background: rgba(108,92,231,.08); }
+
+.btn-row { display: flex; gap: 10px; margin-top: 8px; }
+.btn-row .btn-main, .btn-row .btn-ghost { margin: 0; }
+
+.error { color: #ff6b81; font-size: 13px; min-height: 18px; margin-top: 8px; }
+.success { color: #00ffc8; }
+
+.admin-link {
+  margin-top: 20px; padding: 10px 18px;
+  background: transparent;
+  border: 1px solid #2c3145;
+  border-radius: 12px;
+  color: #9aa0b8;
+  font-size: 13px;
+  transition: all .2s;
+}
+.admin-link:hover { color: #a29bfe; border-color: #6c5ce7; background: rgba(108,92,231,.08); }
+
+/* ---------- پروفایل ---------- */
+.avatar-preview {
+  width: 88px; height: 88px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 48px;
+  margin: 0 auto 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  transition: background .2s;
+}
+.picker-label {
+  font-size: 12.5px; color: #8b90a8;
+  margin: 16px 0 8px;
+  text-align: right;
+  font-weight: 600;
+}
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.emoji-btn {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: #0e1018;
+  border: 1px solid #262b3d;
+  font-size: 18px;
+  display: grid; place-items: center;
+  transition: all .15s;
+}
+.emoji-btn:hover { border-color: #6c5ce7; }
+.emoji-btn.selected {
+  background: rgba(108,92,231,.25);
+  border-color: #6c5ce7;
+  transform: scale(1.05);
+}
+.color-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.color-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  transition: all .15s;
+}
+.color-btn.selected { border-color: #fff; transform: scale(1.1); }
+
+/* ---------- چت ---------- */
+.chat-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(17, 20, 28, .9);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid #1e2231;
+  flex-shrink: 0;
+  gap: 10px;
+}
+.h-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.group-icon {
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6c5ce7, #4834d4);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.group-info { min-width: 0; }
+.group-title {
+  font-size: 15px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.group-sub { font-size: 12px; color: #7d839b; margin-top: 2px; }
+.h-right { display: flex; gap: 6px; flex-shrink: 0; }
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  background: #1a1e2b;
+  color: #c7cbe0;
+  font-size: 16px;
+  display: grid; place-items: center;
+  transition: background .2s;
+}
+.icon-btn:hover { background: #262b3d; }
+.icon-btn.exit:hover { background: rgba(255,71,87,.18); color: #ff6b81; }
+.icon-btn.admin { display: none; }
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#messages::-webkit-scrollbar { width: 6px; }
+#messages::-webkit-scrollbar-thumb { background: #262b3d; border-radius: 3px; }
+
+.msg-row {
+  display: flex;
+  gap: 8px;
+  max-width: 82%;
+  align-self: flex-start;
+  align-items: flex-end;
+  animation: pop .18s ease-out;
+}
+.msg-row.mine { align-self: flex-end; flex-direction: row-reverse; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+
+.msg-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 19px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  user-select: none;
+}
+.msg-body { flex: 1; min-width: 0; }
+
+/* اسم کاربر روی هر پیام */
+.msg-name {
+  font-size: 12px; font-weight: 700;
+  color: #a29bfe;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.msg-row.mine .msg-name {
+  color: rgba(255,255,255,.75);
+  justify-content: flex-end;
+}
+
+/* بج نئونی مدیر */
+.admin-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(0, 255, 200, .12);
+  color: #00ffc8;
+  border: 1px solid rgba(0, 255, 200, .55);
+  text-shadow:
+    0 0 6px #00ffc8,
+    0 0 12px rgba(0, 255, 200, .7),
+    0 0 20px rgba(0, 255, 200, .4);
+  box-shadow:
+    0 0 8px rgba(0, 255, 200, .4),
+    inset 0 0 6px rgba(0, 255, 200, .15);
+  font-weight: 700;
+  letter-spacing: .5px;
+  animation: neonPulse 2s ease-in-out infinite;
+}
+@keyframes neonPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 255, 200, .4), inset 0 0 6px rgba(0, 255, 200, .15);
+    text-shadow: 0 0 6px #00ffc8, 0 0 12px rgba(0, 255, 200, .7);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 255, 200, .8), inset 0 0 10px rgba(0, 255, 200, .25);
+    text-shadow: 0 0 10px #00ffc8, 0 0 20px rgba(0, 255, 200, .9), 0 0 28px rgba(0, 255, 200, .5);
+  }
+}
+
+.msg-bubble {
+  position: relative;
+  background: #1a1e2b;
+  padding: 9px 13px 7px;
+  border-radius: 16px 16px 16px 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.msg-row.mine .msg-bubble {
+  background: linear-gradient(135deg, #5a4bd4, #6c5ce7);
+  border-radius: 16px 16px 4px 16px;
+}
+.msg-text { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; }
+.msg-time { font-size: 10px; color: #7d839b; margin-top: 4px; text-align: left; }
+.msg-row.mine .msg-time { color: rgba(255,255,255,.6); }
+.msg-del {
+  position: absolute;
+  top: -6px; left: -8px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #ff4757;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  display: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+  z-index: 2;
+}
+.msg-bubble:hover .msg-del { display: block; }
+
+/* ---------- پیام خصوصی ---------- */
+.msg-row.private {
+  align-self: center !important;
+  max-width: 92%;
+  flex-direction: row !important;
+  animation: pop .18s ease-out;
+}
+.private-bubble {
+  background: linear-gradient(135deg, rgba(253,203,110,.15), rgba(225,112,85,.12)) !important;
+  border: 1px solid rgba(253,203,110,.4) !important;
+  border-radius: 14px !important;
+}
+.private-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fdcb6e;
+  margin-bottom: 4px;
+}
+
+.system {
+  align-self: center;
+  font-size: 12px;
+  color: #7d839b;
+  background: #141822;
+  padding: 5px 14px;
+  border-radius: 20px;
+}
+
+.chat-input {
+  display: flex; gap: 10px;
+  padding: 12px 14px 16px;
+  background: rgba(15, 18, 25, .95);
+  border-top: 1px solid #1a1e2b;
+  flex-shrink: 0;
+}
+#msgInput {
+  flex: 1;
+  padding: 13px 16px;
+  background: #0e1018;
+  border: 1px solid #262b3d;
+  border-radius: 14px;
+  color: #e8eaf6;
+  font-size: 14.5px;
+  outline: none;
+  transition: border-color .2s;
+}
+#msgInput:focus { border-color: #6c5ce7; }
+#sendBtn {
+  width: 50px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6c5ce7, #8e7bff);
+  color: #fff;
+  font-size: 19px;
+  display: grid; place-items: center;
+  transition: transform .15s;
+}
+#sendBtn:active { transform: scale(.94); }
+
+/* ---------- مودال ---------- */
+.modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.modal.open { display: flex; }
+.modal-card {
+  position: relative;
+  width: 100%; max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #171a23;
+  border: 1px solid #262b3d;
+  border-radius: 22px;
+  padding: 26px 22px;
+  box-shadow: 0 25px 70px rgba(0,0,0,.8);
+}
+.modal-close {
+  position: absolute;
+  top: 12px; left: 12px;
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: #1e2231;
+  color: #c7cbe0;
+  font-size: 18px;
+  z-index: 2;
+}
+.modal-card h2 { font-size: 18px; margin-bottom: 14px; padding-left: 40px; }
+.muted { color: #8b90a8; font-size: 13px; margin-bottom: 14px; }
+
+.admin-block {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #1e2231;
+}
+.admin-block:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+.admin-block h3 {
+  font-size: 13px;
+  color: #a29bfe;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+.admin-block > label {
+  display: block;
+  font-size: 12px; color: #8b90a8;
+  margin-bottom: 6px;
+  margin-top: 10px;
+}
+.row { display: flex; gap: 8px; margin-bottom: 8px; }
+.row .admin-input { margin-bottom: 0; }
+.row button {
+  padding: 0 16px;
+  border-radius: 12px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 13px; font-weight: 700;
+  flex-shrink: 0;
+}
+
+.admin-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+}
+.admin-emoji-btn {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #0e1018;
+  border: 1px solid #262b3d;
+  font-size: 15px;
+  display: grid; place-items: center;
+  transition: all .15s;
+}
+.admin-emoji-btn:hover { border-color: #6c5ce7; }
+.admin-emoji-btn.selected {
+  background: rgba(108,92,231,.3);
+  border-color: #6c5ce7;
+}
+
+.admin-user-row {
+  display: flex; align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: #1a1e2b;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+.admin-user-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+.admin-user-name {
+  flex: 1; font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-user-row button {
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.btn-dm { background: rgba(108,92,231,.18); color: #b9b1ff; }
+.btn-dm:hover { background: rgba(108,92,231,.3); }
+.btn-kick { background: rgba(255,71,87,.15); color: #ff6b81; }
+.btn-kick:hover { background: rgba(255,71,87,.25); }
+
+.danger {
+  width: 100%; padding: 13px;
+  border-radius: 12px;
+  background: rgba(255,71,87,.13);
+  color: #ff6b81;
+  font-size: 14px; font-weight: 700;
+  transition: background .2s;
+}
+.danger:hover { background: rgba(255,71,87,.22); }
+
+#dmText { min-height: 110px; resize: vertical; }
+</style>
+</head>
+<body>
+
+<!-- ============ لود ============ -->
+<div id="loadingScreen" class="screen active">
+  <div class="loading-content">
+    <div class="loading-logo app-logo">💬</div>
+    <div class="loading-name app-name">گروه چت ۵ نفره</div>
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">در حال اتصال به سرور...</div>
+  </div>
+</div>
+
+<!-- ============ ورود نام ============ -->
+<div id="loginScreen" class="screen">
+  <div class="card">
+    <div class="brand-logo app-logo">💬</div>
+    <h1 class="app-name">گروه چت ۵ نفره</h1>
+    <p class="sub">نام نمایشی فارسی خود را وارد کنید</p>
+    <input id="nameInput" placeholder="مثلاً: سامان، نگین، آرش..." maxlength="20" autocomplete="off">
+    <button id="nameNextBtn" class="btn-main">بعدی ←</button>
+    <div id="loginError" class="error"></div>
+    <button id="adminOpenBtn1" class="admin-link">🔐 پنل مدیر</button>
+  </div>
+</div>
+
+<!-- ============ پروفایل ============ -->
+<div id="profileScreen" class="screen">
+  <div class="card">
+    <h1>پروفایل خود را بسازید</h1>
+    <p class="sub">یک آواتار و رنگ برای خودتان انتخاب کنید</p>
+    <div class="avatar-preview" id="avatarPreview">😀</div>
+    <div class="picker-label">آواتار</div>
+    <div class="emoji-grid" id="avatarGrid"></div>
+    <div class="picker-label">رنگ</div>
+    <div class="color-grid" id="colorGrid"></div>
+    <div id="profileError" class="error"></div>
+    <div class="btn-row">
+      <button id="profileBackBtn" class="btn-ghost">→ بازگشت</button>
+      <button id="profileJoinBtn" class="btn-main">ورود به گروه</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ چت ============ -->
+<div id="chatScreen" class="screen">
+  <header class="chat-header">
+    <div class="h-left">
+      <div class="group-icon app-logo">💬</div>
+      <div class="group-info">
+        <div class="group-title" id="groupTitle">گروه پنج نفره</div>
+        <div class="group-sub"><span id="userCount">0</span> / ۵ آنلاین</div>
+      </div>
+    </div>
+    <div class="h-right">
+      <button class="icon-btn admin" id="chatAdminBtn" title="پنل مدیر">⚙️</button>
+      <button class="icon-btn exit" id="exitBtn" title="خروج">🚪</button>
+    </div>
+  </header>
+  <div id="messages"></div>
+  <div class="chat-input">
+    <input id="msgInput" placeholder="پیامت را بنویس..." maxlength="2000" autocomplete="off">
+    <button id="sendBtn">➤</button>
+  </div>
+</div>
+
+<!-- ============ پنل مدیر ============ -->
+<div class="modal" id="adminModal">
+  <div class="modal-card">
+    <button class="modal-close" id="adminClose">×</button>
+
+    <div id="adminLoginBox">
+      <h2>ورود مدیر</h2>
+      <p class="muted">رمز مدیر را وارد کنید</p>
+      <input id="adminPass" type="password" placeholder="رمز">
+      <button id="adminLoginBtn" class="btn-main">ورود</button>
+      <div id="adminError" class="error"></div>
+    </div>
+
+    <div id="adminPanel" style="display:none">
+      <h2>پنل مدیر</h2>
+
+      <div class="admin-block">
+        <h3>🏷 برند برنامه</h3>
+        <label>نام برنامه</label>
+        <div class="row">
+          <input id="appNameInput" class="admin-input" placeholder="نام برنامه">
+          <button id="appNameSaveBtn">ذخیره</button>
+        </div>
+        <label>لوگوی برنامه</label>
+        <div class="admin-emoji-grid" id="appLogoGrid"></div>
+      </div>
+
+      <div class="admin-block">
+        <h3>💬 گروه</h3>
+        <label>نام گروه</label>
+        <div class="row">
+          <input id="groupNameInput" class="admin-input" placeholder="نام جدید گروه">
+          <button id="renameBtn">ذخیره</button>
+        </div>
+      </div>
+
+      <div class="admin-block">
+        <h3>🔐 تغییر رمز مدیر</h3>
+        <label>رمز فعلی</label>
+        <input id="oldPass" class="admin-input" type="password" placeholder="رمز فعلی" autocomplete="off">
+        <label>رمز جدید</label>
+        <input id="newPass" class="admin-input" type="password" placeholder="رمز جدید" autocomplete="off">
+        <label>تکرار رمز جدید</label>
+        <input id="confirmPass" class="admin-input" type="password" placeholder="تکرار رمز جدید" autocomplete="off">
+        <button id="changePassBtn" class="btn-main">تغییر رمز</button>
+        <div id="passMsg" class="error"></div>
+      </div>
+
+      <div class="admin-block">
+        <h3>👥 کاربران (<span id="adminUserCount">0</span>)</h3>
+        <div id="adminUsersList"></div>
+      </div>
+
+      <div class="admin-block">
+        <h3>🗑 پیام‌ها</h3>
+        <button id="clearAllBtn" class="danger">پاک کردن همه پیام‌ها</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ پیام خصوصی ============ -->
+<div class="modal" id="dmModal">
+  <div class="modal-card">
+    <button class="modal-close" id="dmClose">×</button>
+    <h2>پیام خصوصی به <span id="dmTargetName">…</span></h2>
+    <p class="muted">این پیام فقط برای این کاربر نمایش داده می‌شود</p>
+    <textarea id="dmText" placeholder="متن پیام خصوصی..." maxlength="2000"></textarea>
+    <button id="dmSendBtn" class="btn-main">ارسال</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ۱) تنظیمات
+   ============================================================ */
+const ROOM = 'chat5_x7k2p9_room_a3b4c5';
+const BASE = 'chat5/' + ROOM;
+const T_MSG_PREFIX = BASE + '/msg';
+const T_META       = BASE + '/meta';
+const T_PRES       = BASE + '/presence';
+const T_SYS        = BASE + '/sys';
+const T_DM_PREFIX  = BASE + '/dm';
+
+const MAX_USERS = 5;
+const PRESENCE_STALE_MS = 60000;
+const _K = 0x5a;
+
+/* ============================================================
+   ۲) رمز مدیر — XOR-encoded
+   ============================================================ */
+// مقدار پیش‌فرض: samyar12 ^ 0x5a
+let adminPassEncoded = [0x29,0x3b,0x37,0x23,0x3b,0x28,0x6b,0x68];
+
+function decodePassBytes(enc) {
+  if (Array.isArray(enc)) return enc;
+  if (typeof enc === 'string' && /^[0-9a-fA-F]+$/.test(enc) && enc.length % 2 === 0) {
+    const arr = [];
+    for (let i = 0; i < enc.length; i += 2) arr.push(parseInt(enc.substr(i, 2), 16));
+    return arr;
+  }
+  return null;
+}
+
+function checkPass(p) {
+  const bytes = decodePassBytes(adminPassEncoded);
+  if (!bytes || p.length !== bytes.length) return false;
+  for (let i = 0; i < p.length; i++) {
+    if ((p.charCodeAt(i) ^ _K) !== bytes[i]) return false;
+  }
+  return true;
+}
+
+function encodePass(p) {
+  const arr = [];
+  for (let i = 0; i < p.length; i++) arr.push(p.charCodeAt(i) ^ _K);
+  return arr;
+}
+
+function passEncForMeta() {
+  const bytes = decodePassBytes(adminPassEncoded);
+  return bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* ============================================================
+   ۳) حالت
+   ============================================================ */
+const myClientId = 'c' + Math.random().toString(36).slice(2, 10);
+let client = null;
+let mqttReady = false;
+let myName = null;
+let myProfile = { avatar: '😀', color: '#6c5ce7' };
+let joined = false;
+let isAdmin = false;
+let kicked = false;
+
+let messages = [];
+let presence = new Map();
+let appSettings = { appName: 'گروه چت ۵ نفره', appLogo: '💬' };
+let groupName = 'گروه پنج نفره';
+let prevPresenceIds = new Set();
+let presenceLoaded = false;
+let dmTargetCid = null;
+
+const $ = id => document.getElementById(id);
+const messagesEl = $('messages');
+const msgInput = $('msgInput');
+const nameInput = $('nameInput');
+
+const EMOJIS = ['😀','😎','🤓','🥳','😇','🤠','🐱','🐶','🦊','🐼','🦁','🐸','🐙','🦋','🌸','🌟','🔥','🎮','🎨','⚽','🎵','🍕','🚀','💎'];
+const COLORS = ['#6c5ce7','#00b894','#e17055','#0984e3','#d63031','#fdcb6e','#e84393','#00cec9','#a29bfe','#fd79a8'];
+
+/* ============================================================
+   ۴) ابزار
+   ============================================================ */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+function isPersianName(s) { return /^[\u0600-\u06FF\u200c\s_]+$/.test(s); }
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function isUserAdmin(name) {
+  for (const u of presence.values()) {
+    if (u.name === name && u.isAdmin) return true;
+  }
+  return false;
+}
+
+/* ============================================================
+   ۵) برند
+   ============================================================ */
+function applyBranding() {
+  document.querySelectorAll('.app-logo').forEach(el => el.textContent = appSettings.appLogo);
+  document.querySelectorAll('.app-name').forEach(el => el.textContent = appSettings.appName);
+  document.title = appSettings.appName;
+}
+
+/* ============================================================
+   ۶) MQTT
+   ============================================================ */
+function initMQTT() {
+  client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+    clientId: 'chat5_' + myClientId + '_' + Date.now().toString(36),
+    clean: true,
+    keepalive: 30,
+    reconnectPeriod: 3000,
+    connectTimeout: 10000,
+    will: {
+      topic: T_PRES + '/' + myClientId,
+      payload: '',
+      retain: true,
+      qos: 0
+    }
+  });
+
+  client.on('connect', () => {
+    client.subscribe(
+      [T_MSG_PREFIX + '/+', T_META, T_PRES + '/+', T_SYS, T_DM_PREFIX + '/' + myClientId],
+      { qos: 0 },
+      () => {
+        setTimeout(() => {
+          if (!mqttReady) { mqttReady = true; showScreen('loginScreen'); }
+          if (joined) publishPresence();
+        }, 900);
+      }
+    );
+  });
+
+  client.on('error', e => console.error('MQTT error:', e));
+  client.on('message', onMQTTMessage);
+
+  setTimeout(() => {
+    if (!mqttReady && $('loadingScreen').classList.contains('active')) {
+      $('loadingText').textContent = 'اتصال کند است، در حال تلاش مجدد...';
+    }
+  }, 15000);
+}
+
+function onMQTTMessage(topic, payloadBuf) {
+  const raw = payloadBuf.toString();
+
+  if (topic.startsWith(T_PRES + '/')) {
+    const cid = topic.slice(T_PRES.length + 1);
+    if (!raw) presence.delete(cid);
+    else {
+      try {
+        const d = JSON.parse(raw);
+        presence.set(cid, {
+          name: d.name,
+          avatar: d.avatar || '👤',
+          color: d.color || '#6c5ce7',
+          isAdmin: !!d.isAdmin,
+          ts: d.ts || Date.now()
+        });
+      } catch {}
+    }
+    renderCounter();
+    renderAdminUsers();
+    checkJoinsLeaves();
+    // اگر بج مدیر کسی تغییر کرد، همه پیام‌ها را از نو رندر کن
+    refreshMessageBadges();
+    return;
+  }
+
+  if (topic === T_META) {
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      if (d.appName) appSettings.appName = d.appName;
+      if (d.appLogo) appSettings.appLogo = d.appLogo;
+      if (d.groupName) groupName = d.groupName;
+      if (d.passEnc) adminPassEncoded = d.passEnc;
+      applyBranding();
+      $('groupTitle').textContent = groupName;
+      renderAppLogoGrid();
+    } catch {}
+    return;
+  }
+
+  if (topic.startsWith(T_MSG_PREFIX + '/')) {
+    const id = topic.slice(T_MSG_PREFIX.length + 1);
+    if (!raw) {
+      messages = messages.filter(m => m.id !== id);
+      messagesEl.querySelectorAll(`[data-mid="${CSS.escape(id)}"]`).forEach(el => el.remove());
+      return;
+    }
+    try {
+      const m = JSON.parse(raw);
+      if (!messages.find(x => x.id === m.id)) {
+        messages.push(m);
+        addMessageEl(m);
+        scrollBottom();
+      }
+    } catch {}
+    return;
+  }
+
+  if (topic === T_SYS) {
+    if (!raw) return;
+    try { handleSysEvent(JSON.parse(raw)); } catch {}
+    return;
+  }
+
+  if (topic === T_DM_PREFIX + '/' + myClientId) {
+    if (!raw) return;
+    try { addPrivateMessage(JSON.parse(raw), false); } catch {}
+  }
+}
+
+function handleSysEvent(d) {
+  if (d.type === 'kick' && d.name === myName && !kicked) {
+    kicked = true;
+    showKicked();
+    if (client && client.connected) {
+      client.publish(T_PRES + '/' + myClientId, '', { retain: true, qos: 0 });
+      setTimeout(() => client.end(true), 500);
+    }
+  } else if (d.type === 'cleared') {
+    addSystemEl('همه پیام‌ها توسط مدیر پاک شدند');
+  }
+}
+
+/* ============================================================
+   ۷) ورود
+   ============================================================ */
+$('nameNextBtn').onclick = () => {
+  $('loginError').textContent = '';
+  const name = nameInput.value.trim();
+  if (!name) { $('loginError').textContent = 'نام نمایشی را وارد کنید'; return; }
+  if (name.length > 20) { $('loginError').textContent = 'نام حداکثر ۲۰ کاراکتر'; return; }
+  if (!isPersianName(name)) { $('loginError').textContent = 'نام را فقط با حروف فارسی بنویسید'; return; }
+  for (const u of presence.values()) {
+    if (u.name === name) { $('loginError').textContent = 'این نام قبلاً انتخاب شده'; return; }
+  }
+  if (presence.size >= MAX_USERS) { $('loginError').textContent = 'گروه پر است (حداکثر ۵ نفر)'; return; }
+
+  myName = name;
+  showScreen('profileScreen');
+  renderProfilePickers();
+};
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') $('nameNextBtn').click(); });
+$('profileBackBtn').onclick = () => showScreen('loginScreen');
+
+function renderProfilePickers() {
+  const eg = $('avatarGrid');
+  eg.innerHTML = '';
+  EMOJIS.forEach(e => {
+    const b = document.createElement('button');
+    b.className = 'emoji-btn' + (myProfile.avatar === e ? ' selected' : '');
+    b.textContent = e;
+    b.onclick = () => { myProfile.avatar = e; updateAvatarPreview(); renderProfilePickers(); };
+    eg.appendChild(b);
+  });
+  const cg = $('colorGrid');
+  cg.innerHTML = '';
+  COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'color-btn' + (myProfile.color === c ? ' selected' : '');
+    b.style.background = c;
+    b.onclick = () => { myProfile.color = c; updateAvatarPreview(); renderProfilePickers(); };
+    cg.appendChild(b);
+  });
+  updateAvatarPreview();
+}
+function updateAvatarPreview() {
+  const p = $('avatarPreview');
+  p.textContent = myProfile.avatar;
+  p.style.background = myProfile.color;
+}
+
+$('profileJoinBtn').onclick = () => {
+  joined = true;
+  showScreen('chatScreen');
+  publishPresence();
+  msgInput.focus();
+  setTimeout(() => {
+    presenceLoaded = true;
+    prevPresenceIds = new Set(presence.keys());
+  }, 1200);
+};
+
+function publishPresence() {
+  if (!client || !client.connected || !myName) return;
+  client.publish(
+    T_PRES + '/' + myClientId,
+    JSON.stringify({
+      name: myName,
+      avatar: myProfile.avatar,
+      color: myProfile.color,
+      isAdmin: isAdmin,
+      ts: Date.now()
+    }),
+    { retain: true, qos: 0 }
+  );
+}
+
+/* ============================================================
+   ۸) رندر پیام
+   ============================================================ */
+function addMessageEl(m) {
+  const mine = m.name === myName;
+  const div = document.createElement('div');
+  div.className = 'msg-row' + (mine ? ' mine' : '');
+  div.dataset.mid = m.id;
+  div.dataset.ts = m.ts;
+  div.dataset.name = m.name;
+
+  const avatar = m.avatar || '👤';
+  const color = m.color || '#6c5ce7';
+  const time = new Date(m.ts).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+  const adminTag = (m.isAdmin || isUserAdmin(m.name))
+    ? ' <span class="admin-badge">مدیر</span>'
+    : '';
+
+  let inner = `<div class="msg-avatar" style="background:${color}">${esc(avatar)}</div>`;
+  inner += '<div class="msg-body">';
+  inner += `<div class="msg-name">${esc(m.name)}${adminTag}</div>`;
+  inner += `<div class="msg-bubble">`;
+  inner += `<div class="msg-text">${esc(m.text)}</div>`;
+  inner += `<div class="msg-time">${time}</div>`;
+  inner += `</div></div>`;
+
+  div.innerHTML = inner;
+  if (isAdmin || mine) attachDeleteBtn(div, m.id);
+  messagesEl.appendChild(div);
+  scrollBottom();
+}
+
+function refreshMessageBadges() {
+  messagesEl.querySelectorAll('.msg-row:not(.private)').forEach(div => {
+    const name = div.dataset.name;
+    if (!name) return;
+    const m = messages.find(x => x.id === div.dataset.mid);
+    if (!m) return;
+    const nameEl = div.querySelector('.msg-name');
+    if (!nameEl) return;
+    const isAdm = m.isAdmin || isUserAdmin(name);
+    const hasBadge = !!nameEl.querySelector('.admin-badge');
+    if (isAdm && !hasBadge) {
+      nameEl.insertAdjacentHTML('beforeend', ' <span class="admin-badge">مدیر</span>');
+    } else if (!isAdm && hasBadge) {
+      nameEl.querySelector('.admin-badge')?.remove();
+    }
+  });
+}
+
+function addPrivateMessage(dm, sent) {
+  const div = document.createElement('div');
+  div.className = 'msg-row private' + (sent ? ' mine' : '');
+  const time = new Date(dm.ts).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+  const label = sent
+    ? `🔒 ارسال شد به ${esc(dm.to || '')}`
+    : `🔒 پیام خصوصی از مدیر`;
+
+  div.innerHTML = `
+    <div class="msg-avatar">${sent ? '📤' : '📩'}</div>
+    <div class="msg-body">
+      <div class="msg-bubble private-bubble">
+        <div class="private-badge">${label}</div>
+        <div class="msg-text">${esc(dm.text)}</div>
+        <div class="msg-time">${time}</div>
+      </div>
+    </div>`;
+  messagesEl.appendChild(div);
+  scrollBottom();
+  messages.push({ id: 'dm_' + dm.ts + Math.random().toString(36).slice(2, 6), _dm: true, ts: dm.ts });
+}
+
+function attachDeleteBtn(div, id) {
+  const bubble = div.querySelector('.msg-bubble');
+  if (!bubble || bubble.querySelector('.msg-del')) return;
+  const btn = document.createElement('button');
+  btn.className = 'msg-del';
+  btn.title = 'حذف پیام';
+  btn.textContent = '×';
+  btn.onclick = () => {
+    if (confirm('این پیام حذف شود؟')) {
+      client.publish(`${T_MSG_PREFIX}/${id}`, '', { retain: true, qos: 0 });
+    }
+  };
+  bubble.appendChild(btn);
+}
+
+function addSystemEl(text) {
+  const el = document.createElement('div');
+  el.className = 'system';
+  el.textContent = text;
+  messagesEl.appendChild(el);
+  scrollBottom();
+}
+
+/* ============================================================
+   ۹) کاربران
+   ============================================================ */
+function renderCounter() { $('userCount').textContent = presence.size; }
+
+function checkJoinsLeaves() {
+  const nowIds = new Set(presence.keys());
+  if (presenceLoaded) {
+    for (const cid of nowIds) {
+      if (!prevPresenceIds.has(cid) && cid !== myClientId) {
+        const u = presence.get(cid);
+        if (u) addSystemEl(`${u.name} به گروه پیوست`);
+      }
+    }
+    for (const cid of prevPresenceIds) {
+      if (!nowIds.has(cid) && cid !== myClientId) {
+        const name = presence.get(cid)?.name;
+        if (name) addSystemEl(`${name} گروه را ترک کرد`);
+      }
+    }
+  }
+  prevPresenceIds = nowIds;
+}
+
+function renderAdminUsers() {
+  $('adminUserCount').textContent = presence.size;
+  const rows = [];
+  for (const [cid, u] of presence) {
+    const me = cid === myClientId || u.name === myName;
+    const badge = u.isAdmin ? ' <span class="admin-badge">مدیر</span>' : '';
+    rows.push(`<div class="admin-user-row">
+      <div class="admin-user-avatar" style="background:${u.color || '#6c5ce7'}">${esc(u.avatar || '👤')}</div>
+      <div class="admin-user-name">${esc(u.name)}${badge}${me ? ' (شما)' : ''}</div>
+      ${me ? '' : `<button class="btn-dm" data-cid="${esc(cid)}">💬</button>
+                   <button class="btn-kick" data-name="${esc(u.name)}">✕</button>`}
+    </div>`);
+  }
+  $('adminUsersList').innerHTML = rows.join('');
+  $('adminUsersList').querySelectorAll('.btn-dm').forEach(b => {
+    b.onclick = () => openDM(b.dataset.cid);
+  });
+  $('adminUsersList').querySelectorAll('.btn-kick').forEach(b => {
+    b.onclick = () => {
+      if (confirm(`«${b.dataset.name}» از گروه حذف شود؟`))
+        client.publish(T_SYS, JSON.stringify({ type: 'kick', name: b.dataset.name }));
+    };
+  });
+}
+
+/* ============================================================
+   ۱۰) ارسال پیام
+   ============================================================ */
+function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text || !joined) return;
+  if (!client || !client.connected) return;
+
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const m = {
+    id, name: myName,
+    avatar: myProfile.avatar,
+    color: myProfile.color,
+    isAdmin: isAdmin,
+    text, ts: Date.now()
+  };
+  client.publish(`${T_MSG_PREFIX}/${id}`, JSON.stringify(m), { retain: true, qos: 0 });
+  msgInput.value = '';
+  msgInput.focus();
+}
+
+/* ============================================================
+   ۱۱) پیام خصوصی
+   ============================================================ */
+function openDM(cid) {
+  dmTargetCid = cid;
+  const u = presence.get(cid);
+  if (!u) return;
+  $('dmTargetName').textContent = u.name;
+  $('dmText').value = '';
+  $('dmModal').classList.add('open');
+  setTimeout(() => $('dmText').focus(), 100);
+}
+function closeDM() { $('dmModal').classList.remove('open'); dmTargetCid = null; }
+function sendDM() {
+  const text = $('dmText').value.trim();
+  if (!text || !dmTargetCid) return;
+  const u = presence.get(dmTargetCid);
+  if (!u) { closeDM(); return; }
+  const dm = { from: myName || 'مدیر', fromCid: myClientId, to: u.name, text, ts: Date.now() };
+  client.publish(`${T_DM_PREFIX}/${dmTargetCid}`, JSON.stringify(dm), { retain: false, qos: 0 });
+  addPrivateMessage(dm, true);
+  closeDM();
+}
+
+/* ============================================================
+   ۱۲) پنل مدیر
+   ============================================================ */
+function updateAdminUI() {
+  $('chatAdminBtn').style.display = isAdmin ? 'grid' : 'none';
+  messagesEl.querySelectorAll('.msg-row:not(.private)').forEach(div => {
+    const m = messages.find(x => x.id === div.dataset.mid);
+    if (!m) return;
+    if (isAdmin || m.name === myName) attachDeleteBtn(div, m.id);
+  });
+  renderAdminUsers();
+  $('appNameInput').placeholder = appSettings.appName;
+  $('groupNameInput').placeholder = groupName;
+  renderAppLogoGrid();
+}
+
+function renderAppLogoGrid() {
+  const g = $('appLogoGrid');
+  if (!g) return;
+  g.innerHTML = '';
+  EMOJIS.forEach(e => {
+    const b = document.createElement('button');
+    b.className = 'admin-emoji-btn' + (appSettings.appLogo === e ? ' selected' : '');
+    b.textContent = e;
+    b.onclick = () => {
+      appSettings.appLogo = e;
+      publishMeta();
+      applyBranding();
+      renderAppLogoGrid();
+    };
+    g.appendChild(b);
+  });
+}
+
+function publishMeta() {
+  client.publish(T_META, JSON.stringify({
+    groupName,
+    appName: appSettings.appName,
+    appLogo: appSettings.appLogo,
+    passEnc: passEncForMeta()
+  }), { retain: true, qos: 0 });
+}
+
+function openAdminModal() {
+  $('adminModal').classList.add('open');
+  $('adminError').textContent = '';
+  $('passMsg').textContent = '';
+  $('passMsg').className = 'error';
+  $('oldPass').value = $('newPass').value = $('confirmPass').value = '';
+  if (isAdmin) {
+    $('adminLoginBox').style.display = 'none';
+    $('adminPanel').style.display = 'block';
+    updateAdminUI();
+  } else {
+    $('adminLoginBox').style.display = 'block';
+    $('adminPanel').style.display = 'none';
+    $('adminPass').value = '';
+    setTimeout(() => $('adminPass').focus(), 100);
+  }
+}
+function closeAdminModal() { $('adminModal').classList.remove('open'); }
+
+/* ============================================================
+   ۱۳) اخراج / خروج
+   ============================================================ */
+function showKicked() {
+  document.body.innerHTML = `
+    <div style="display:grid;place-items:center;height:100vh;text-align:center;padding:20px;font-family:'Vazirmatn',sans-serif;background:#0b0d14;color:#e8eaf6">
+      <div>
+        <div style="font-size:60px;margin-bottom:16px">🚫</div>
+        <h2 style="margin-bottom:10px">شما توسط مدیر از گروه حذف شدید</h2>
+        <p style="color:#8b90a8">برای ورود مجدد صفحه را رفرش کنید</p>
+      </div>
+    </div>`;
+}
+
+$('exitBtn').onclick = () => {
+  if (!confirm('از گروه خارج می‌شوید؟')) return;
+  if (client && client.connected && myName) {
+    client.publish(T_PRES + '/' + myClientId, '', { retain: true, qos: 0 });
+  }
+  setTimeout(() => location.reload(), 250);
+};
+
+/* ============================================================
+   ۱۴) رویدادها
+   ============================================================ */
+$('sendBtn').onclick = sendMessage;
+msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+$('adminOpenBtn1').onclick = openAdminModal;
+$('chatAdminBtn').onclick = openAdminModal;
+$('adminClose').onclick = closeAdminModal;
+$('adminModal').addEventListener('click', e => {
+  if (e.target === $('adminModal')) closeAdminModal();
+});
+
+$('adminLoginBtn').onclick = () => {
+  $('adminError').textContent = '';
+  const p = $('adminPass').value;
+  if (!p) { $('adminError').textContent = 'رمز را وارد کنید'; return; }
+  if (checkPass(p)) {
+    isAdmin = true;
+    $('adminLoginBox').style.display = 'none';
+    $('adminPanel').style.display = 'block';
+    updateAdminUI();
+    if (joined) publishPresence();          // اعلام وضعیت مدیر به بقیه
+    refreshMessageBadges();                  // بج مدیر روی پیام‌های قبلی
+  } else {
+    $('adminError').textContent = 'رمز اشتباه است';
+    $('adminPass').value = '';
+  }
+};
+$('adminPass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('adminLoginBtn').click();
+});
+
+/* ---------- تغییر رمز مدیر ---------- */
+$('changePassBtn').onclick = () => {
+  $('passMsg').textContent = '';
+  $('passMsg').className = 'error';
+  const oldP = $('oldPass').value;
+  const newP = $('newPass').value;
+  const confP = $('confirmPass').value;
+
+  if (!oldP || !newP || !confP) {
+    $('passMsg').textContent = 'همه فیلدها را پر کنید';
+    return;
+  }
+  if (!checkPass(oldP)) {
+    $('passMsg').textContent = 'رمز فعلی اشتباه است';
+    return;
+  }
+  if (newP.length < 4) {
+    $('passMsg').textContent = 'رمز جدید حداقل ۴ کاراکتر باشد';
+    return;
+  }
+  if (newP !== confP) {
+    $('passMsg').textContent = 'رمز جدید و تکرار آن یکسان نیست';
+    return;
+  }
+
+  adminPassEncoded = encodePass(newP);
+  publishMeta();
+
+  $('oldPass').value = $('newPass').value = $('confirmPass').value = '';
+  $('passMsg').className = 'success';
+  $('passMsg').textContent = '✓ رمز مدیر با موفقیت تغییر کرد';
+};
+
+/* ---------- برند / گروه ---------- */
+$('appNameSaveBtn').onclick = () => {
+  const n = $('appNameInput').value.trim();
+  if (!n) return;
+  appSettings.appName = n;
+  publishMeta();
+  applyBranding();
+  $('appNameInput').value = '';
+};
+$('renameBtn').onclick = () => {
+  const n = $('groupNameInput').value.trim();
+  if (!n) return;
+  groupName = n;
+  publishMeta();
+  $('groupTitle').textContent = groupName;
+  $('groupNameInput').value = '';
+};
+$('clearAllBtn').onclick = () => {
+  if (!confirm('همه پیام‌ها پاک شوند؟ این کار قابل بازگشت نیست.')) return;
+  messages.forEach(m => {
+    if (!m._dm) client.publish(`${T_MSG_PREFIX}/${m.id}`, '', { retain: true, qos: 0 });
+  });
+  client.publish(T_SYS, JSON.stringify({ type: 'cleared' }));
+  messages = [];
+  messagesEl.innerHTML = '';
+  addSystemEl('همه پیام‌ها توسط مدیر پاک شدند');
+};
+
+/* ---------- DM ---------- */
+$('dmClose').onclick = closeDM;
+$('dmModal').addEventListener('click', e => { if (e.target === $('dmModal')) closeDM(); });
+$('dmSendBtn').onclick = sendDM;
+$('dmText').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDM(); }
+});
+
+/* ============================================================
+   ۱۵) ضربان حضور
+   ============================================================ */
+setInterval(() => {
+  if (joined && client && client.connected) publishPresence();
+
+  const now = Date.now();
+  let changed = false;
+  for (const [cid, info] of presence) {
+    if (cid !== myClientId && now - info.ts > PRESENCE_STALE_MS) {
+      presence.delete(cid);
+      changed = true;
+    }
+  }
+  if (changed) {
+    renderCounter();
+    renderAdminUsers();
+    checkJoinsLeaves();
+    refreshMessageBadges();
+  }
+}, 20000);
+
+/* ============================================================
+   ۱۶) شروع
+   ============================================================ */
+applyBranding();
+renderProfilePickers();
+initMQTT();
+</script>
+</body>
+</html>
